@@ -91,18 +91,19 @@ xivopeners_drk.openerStarted = false
 xivopeners_drk.lastcastid = 0
 xivopeners_drk.lastcastid2 = 0
 
-function xivopeners_smn.getTincture()
+function xivopeners_drk.getTincture()
     local tincture = Inventory:Get(0):Get(xivopeners_drk.openerAbilities.Tincture.id)
     return tincture
 end
 
 function xivopeners_drk.getOpener()
+    local opener
     if (xivopeners_drk.openerInfo.currentOpenerIndex == 1) then
-        return xivopeners_drk.openers.recommended
+        opener =  xivopeners_drk.openers.recommended
     elseif (xivopeners_drk.openerInfo.currentOpenerIndex == 2) then
-        return xivopeners_drk.openers.no_tincture
+        opener =  xivopeners_drk.openers.no_tincture
     else
-        return {}
+        return opener
     end
 end
 
@@ -166,6 +167,12 @@ function xivopeners_drk.updateLastCast()
 end
 
 function xivopeners_drk.drawCall(event, tickcount)
+    GUI:BeginGroup()
+    GUI:Text("Use Tincture")
+    GUI:NextColumn()
+    xivopeners_drk.useTincture = GUI:Checkbox("##xivopeners_drk_tincturecheck", xivopeners_drk.useTincture)
+    GUI:EndGroup()
+    GUI:NextColumn()
     if (xivopeners_drk.debug) then
         GUI:Text("lastcastid")
         GUI:NextColumn()
@@ -204,6 +211,11 @@ end
 
 function xivopeners_drk.main(event, tickcount)
     if (Player.level >= xivopeners_drk.supportedLevel) then
+        if (xivopeners_drk.useTincture and not xivopeners_drk.getTincture()) then
+            -- if we don't have a tincture but the toggle is on, turn it off
+            xivopeners_drk.useTincture = false
+        end
+
         local target = Player:GetTarget()
         if (not target) then return end
 
@@ -260,11 +272,15 @@ function xivopeners_drk.useNextAction(target)
     -- do the actual opener
     -- the current implementation uses a queue system
     if (target and target.attackable and xivopeners_drk.abilityQueue[1]) then
+        local tincture = xivopeners_drk.getTincture()
+        if (HasBuff(Player.id, xivopeners_drk.openerAbilities.MedicineBuffID) or not xivopeners_drk.useTincture or not tincture) then
+            xivopeners.log("Tincture already used during opener, not enabled, or not available, dequeueing")
+            xivopeners_drk.dequeue()
+            return
+        end
         -- idk how to make it not spam console
 --        xivopeners.log("Casting " .. xivopeners_drk.abilityQueue[1].name)
         xivopeners_drk.abilityQueue[1]:Cast(target.id)
---        if (Player.castinginfo.castingid == xivopeners_drk.abilityQueue[1].id) then
-            xivopeners_drk.lastCastFromQueue = xivopeners_drk.abilityQueue[1]
---        end
+        xivopeners_drk.lastCastFromQueue = xivopeners_drk.abilityQueue[1]
     end
 end
